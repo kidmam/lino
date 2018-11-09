@@ -22,6 +22,7 @@ const (
 	FlagReceiver = "receiver"
 	FlagAmount   = "amount"
 	FlagMemo     = "memo"
+	FlagAccMeta  = "accmeta"
 
 	// Developer
 	FlagDeveloper   = "developer"
