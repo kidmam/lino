@@ -210,7 +210,7 @@ func (dm DeveloperManager) WithdrawAll(
 }
 
 // Export state of storage
-func (dm DeveloperManager) Export(ctx sdk.Context) *model.DeveloperTables {
+func (dm DeveloperManager) Export(ctx sdk.Context) *model.DeveloperTablesIR {
 	return dm.storage.Export(ctx)
 }
 

@@ -15,6 +15,8 @@ import (
 	"github.com/lino-network/lino/x/post"
 	"github.com/lino-network/lino/x/proposal"
 
+	"github.com/go-test/deep"
+
 	acc "github.com/lino-network/lino/x/account"
 	accmodel "github.com/lino-network/lino/x/account/model"
 	developer "github.com/lino-network/lino/x/developer"
@@ -288,32 +290,31 @@ func (lb *LinoBlockchain) initChainer(ctx sdk.Context, req abci.RequestInitChain
 		panic(err)
 	}
 
-	// init genesis accounts
-	for _, gacc := range genesisState.Accounts {
-		if err := lb.toAppAccount(ctx, gacc); err != nil {
-			panic(err)
-		}
-	}
-
-	// init genesis developers
-	for _, developer := range genesisState.Developers {
-		if err := lb.toAppDeveloper(ctx, developer); err != nil {
-			panic(err)
-		}
-	}
-
-	// init genesis infra
-	for _, infra := range genesisState.Infra {
-		if err := lb.toAppInfra(ctx, infra); err != nil {
-			panic(err)
-		}
-	}
-
-	// import from prev state.
+	// import from prev state, do not read from genesis.
 	if lb.importRequired {
 		lb.ImportFromFiles(ctx)
-	}
+	} else {
+		// init genesis accounts
+		for _, gacc := range genesisState.Accounts {
+			if err := lb.toAppAccount(ctx, gacc); err != nil {
+				panic(err)
+			}
+		}
 
+		// init genesis developers
+		for _, developer := range genesisState.Developers {
+			if err := lb.toAppDeveloper(ctx, developer); err != nil {
+				panic(err)
+			}
+		}
+
+		// init genesis infra
+		for _, infra := range genesisState.Infra {
+			if err := lb.toAppInfra(ctx, infra); err != nil {
+				panic(err)
+			}
+		}
+	}
 	return abci.ResponseInitChain{}
 }
 
@@ -656,7 +657,12 @@ func (lb *LinoBlockchain) syncInfoWithVoteManager(ctx sdk.Context) {
 }
 
 // Custom logic for state export
-func (lb *LinoBlockchain) ExportAppStateAndValidators() (appState json.RawMessage, validators []tmtypes.GenesisValidator, err error) {
+func (lb *LinoBlockchain) ExportAppStateAndValidators(checkmode bool) (appState json.RawMessage, validators []tmtypes.GenesisValidator, err error) {
+	check := func(e error) {
+		if e != nil {
+			panic(e)
+		}
+	}
 	ctx := lb.NewContext(true, abci.Header{})
 
 	exportToFile := func(filename string, exporter func(sdk.Context) interface{}) {
@@ -665,12 +671,88 @@ func (lb *LinoBlockchain) ExportAppStateAndValidators() (appState json.RawMessag
 			panic("failed to create account")
 		}
 		defer f.Close()
-		n, err := lb.cdc.MarshalBinaryLengthPrefixedWriter(f, exporter(ctx))
+		ir := exporter(ctx)
+		n, err := lb.cdc.MarshalBinaryLengthPrefixedWriter(f, ir)
 		if err != nil {
 			panic("failed to marshal binary for " + filename + " due to " + err.Error())
 		}
 		fmt.Printf("export for %s done: %d bytes\n", filename, n)
 		f.Sync()
+
+		// check against previous state
+		if checkmode {
+			switch v := ir.(type) {
+			case *accmodel.AccountTablesIR:
+				fmt.Printf("checkmode checking: %s\n", "account")
+				prevf, err := os.Open("./" + prevStateFolder + accountStateFile)
+				defer prevf.Close()
+				check(err)
+				prevIR := &accmodel.AccountTablesIR{}
+				n, err = lb.cdc.UnmarshalBinaryLengthPrefixedReader(prevf, prevIR, 0)
+				check(err)
+				if diff := deep.Equal(ir, prevIR); diff != nil {
+					fmt.Printf("%s\n", diff)
+				}
+			case *postmodel.PostTablesIR:
+				fmt.Printf("checkmode checking: %s\n", "post")
+				prevf, err := os.Open("./" + prevStateFolder + postStateFile)
+				defer prevf.Close()
+				check(err)
+				prevIR := &postmodel.PostTablesIR{}
+				n, err = lb.cdc.UnmarshalBinaryLengthPrefixedReader(prevf, prevIR, 0)
+				check(err)
+				if diff := deep.Equal(ir, prevIR); diff != nil {
+					fmt.Printf("%s\n", diff)
+				}
+			case *valmodel.ValidatorTablesIR:
+				fmt.Printf("checkmode checking: %s\n", "validator")
+				prevf, err := os.Open("./" + prevStateFolder + validatorStateFile)
+				defer prevf.Close()
+				check(err)
+				prevIR := &valmodel.ValidatorTablesIR{}
+				n, err = lb.cdc.UnmarshalBinaryLengthPrefixedReader(prevf, prevIR, 0)
+				check(err)
+				if diff := deep.Equal(ir, prevIR); diff != nil {
+					fmt.Printf("%s\n", diff)
+				}
+			case devmodel.DeveloperTablesIR:
+				fmt.Printf("checkmode checking: %s\n", "developer")
+				prevf, err := os.Open("./" + prevStateFolder + developerStateFile)
+				defer prevf.Close()
+				check(err)
+				prevIR := &devmodel.DeveloperTablesIR{}
+				n, err = lb.cdc.UnmarshalBinaryLengthPrefixedReader(prevf, prevIR, 0)
+				check(err)
+				if diff := deep.Equal(&v, prevIR); diff != nil {
+					fmt.Printf("%s\n", diff)
+				}
+			case globalmodel.GlobalTablesIR:
+				fmt.Printf("checkmode checking: %s\n", "global")
+				prevf, err := os.Open("./" + prevStateFolder + globalStateFile)
+				defer prevf.Close()
+				check(err)
+				prevIR := &globalmodel.GlobalTablesIR{}
+				n, err = lb.cdc.UnmarshalBinaryLengthPrefixedReader(prevf, prevIR, 0)
+				check(err)
+				if diff := deep.Equal(&v, prevIR); diff != nil {
+					fmt.Printf("%s\n", diff)
+				}
+			case inframodel.InfraTablesIR:
+				fmt.Printf("checkmode checking: %s\n", "infra")
+				prevf, err := os.Open("./" + prevStateFolder + infraStateFile)
+				defer prevf.Close()
+				check(err)
+				prevIR := &inframodel.InfraTablesIR{}
+				n, err = lb.cdc.UnmarshalBinaryLengthPrefixedReader(prevf, prevIR, 0)
+				check(err)
+				if diff := deep.Equal(&v, prevIR); diff != nil {
+					fmt.Printf("%s\n", diff)
+				}
+			default:
+				fmt.Printf("unknown type: %T, skipped\n", v)
+			}
+		}
+
 	}
 
 	exportToFile(currStateFolder+accountStateFile, func(ctx sdk.Context) interface{} {

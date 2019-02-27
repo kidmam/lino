@@ -27,6 +27,10 @@ func newApp(logger log.Logger, db dbm.DB, traceStore io.Writer) abci.Application
 	return app
 }
 
+const (
+	flagCheckMode = "checkmode"
+)
+
 func main() {
 	cobra.EnableCommandSorting = false
 
@@ -39,6 +43,8 @@ func main() {
 		PersistentPreRunE: server.PersistentPreRunEFn(ctx),
 	}
 
+	rootCmd.Flags().Bool(flagCheckMode, false, "Export state in checkmode")
+
 	rootCmd.AddCommand(app.InitCmd(ctx, cdc))
 
 	server.AddCommands(ctx, cdc, rootCmd, newApp, exportAppStateAndTMValidators)
@@ -49,6 +55,7 @@ func main() {
 
 func exportAppStateAndTMValidators(logger log.Logger, db dbm.DB, traceStore io.Writer,
 	_ int64, _ bool, _ []string) (json.RawMessage, []tmtypes.GenesisValidator, error) {
+	// checkmode := viper.GetBool(flagCheckMode)
 	lb := app.NewLinoBlockchain(logger, db, traceStore)
-	return lb.ExportAppStateAndValidators()
+	return lb.ExportAppStateAndValidators(true)
 }
