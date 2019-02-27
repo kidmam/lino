@@ -845,36 +845,43 @@ func (lb *LinoBlockchain) ImportFromFiles(ctx sdk.Context) {
 			check(err)
 			fmt.Printf("%s state parsed: %T\n", filename, t)
 			lb.accountManager.Import(ctx, t)
+			commitCacheByRefl(ctx, lb.CapKeyAccountStore)
 		case *devmodel.DeveloperTablesIR:
 			n, err = lb.cdc.UnmarshalBinaryLengthPrefixedReader(f, t, 0)
 			check(err)
 			fmt.Printf("%s state parsed: %T\n", filename, t)
 			lb.developerManager.Import(ctx, t)
+			commitCacheByRefl(ctx, lb.CapKeyDeveloperStore)
 		case *globalmodel.GlobalTablesIR:
 			n, err = lb.cdc.UnmarshalBinaryLengthPrefixedReader(f, t, 0)
 			check(err)
 			fmt.Printf("%s state parsed: %T\n", filename, t)
 			lb.globalManager.Import(ctx, t)
+			commitCacheByRefl(ctx, lb.CapKeyGlobalStore)
 		case *inframodel.InfraTablesIR:
 			n, err = lb.cdc.UnmarshalBinaryLengthPrefixedReader(f, t, 0)
 			check(err)
 			fmt.Printf("%s state parsed: %T\n", filename, t)
 			lb.infraManager.Import(ctx, t)
+			commitCacheByRefl(ctx, lb.CapKeyInfraStore)
 		case *postmodel.PostTablesIR:
 			n, err = lb.cdc.UnmarshalBinaryLengthPrefixedReader(f, t, 0)
 			check(err)
 			fmt.Printf("%s state parsed: %T\n", filename, t)
 			lb.postManager.Import(ctx, t)
+			commitCacheByRefl(ctx, lb.CapKeyPostStore)
 		case *valmodel.ValidatorTablesIR:
 			n, err = lb.cdc.UnmarshalBinaryLengthPrefixedReader(f, t, 0)
 			check(err)
 			fmt.Printf("%s state parsed: %T\n", filename, t)
 			lb.valManager.Import(ctx, t)
+			commitCacheByRefl(ctx, lb.CapKeyValStore)
 		case *[]byte:
 			n, err = lb.cdc.UnmarshalBinaryLengthPrefixedReader(f, t, 0)
 			check(err)
 			fmt.Printf("%s state parsed: %T\n", filename, t)
 			lb.reputationManager.Import(ctx, *t)
+			commitCacheByRefl(ctx, lb.CapKeyReputationStore)
 		}
 		fmt.Printf("%s loaded, total %d bytes\n", filename, n)
 	}
