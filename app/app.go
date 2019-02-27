@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/lino-network/lino/param"
@@ -737,6 +738,27 @@ func (lb *LinoBlockchain) ExportAppStateAndValidators(checkmode bool) (appState 
 				if diff := deep.Equal(&v, prevIR); diff != nil {
 					fmt.Printf("%s\n", diff)
 				}
+				prevStakeStatsSorted := []globalmodel.GlobalStakeStatDayRow{}
+				for _, v := range prevIR.GlobalStakeStats {
+					prevStakeStatsSorted = append(prevStakeStatsSorted, v)
+				}
+				newStakeStatsSorted := []globalmodel.GlobalStakeStatDayRow{}
+				for _, v := range v.GlobalStakeStats {
+					newStakeStatsSorted = append(newStakeStatsSorted, v)
+				}
+				sort.Slice(prevStakeStatsSorted, func(i int, j int) bool {
+					return prevStakeStatsSorted[i].Day < prevStakeStatsSorted[j].Day
+				})
+				sort.Slice(newStakeStatsSorted, func(i int, j int) bool {
+					return newStakeStatsSorted[i].Day < newStakeStatsSorted[j].Day
+				})
+				fmt.Println("============== global recheck ==================")
+				if diff := deep.Equal(prevStakeStatsSorted, newStakeStatsSorted); diff != nil {
+					fmt.Printf("stakestats diff: %s\n", diff)
+				} else {
+					fmt.Println("stakestats are the same after sorted, don't worry")
+				}
+
 			case inframodel.InfraTablesIR:
 				fmt.Printf("checkmode checking: %s\n", "infra")
 				prevf, err := os.Open("./" + prevStateFolder + infraStateFile)
