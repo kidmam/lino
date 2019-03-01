@@ -317,15 +317,12 @@ func (lb *LinoBlockchain) initChainer(ctx sdk.Context, req abci.RequestInitChain
 	}
 
 	// generate respoinse init message.
-	validators, err := lb.valManager.GetInitValidators(ctx)
-	if err != nil {
-		panic(err)
-	}
+	// validators, err := lb.valManager.GetInitValidators(ctx)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	return abci.ResponseInitChain{
-		ConsensusParams: req.ConsensusParams,
-		Validators:      validators,
-	}
+	return abci.ResponseInitChain{}
 }
 
 // convert GenesisAccount to AppAccount
