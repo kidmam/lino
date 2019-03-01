@@ -316,6 +316,8 @@ func (lb *LinoBlockchain) initChainer(ctx sdk.Context, req abci.RequestInitChain
 		}
 	}
 
+	fmt.Println("test version")
+
 	// generate respoinse init message.
 	// validators, err := lb.valManager.GetInitValidators(ctx)
 	// if err != nil {
