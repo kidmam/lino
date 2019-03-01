@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/hex"
 	"strings"
+	"strconv"
 
 	"github.com/lino-network/lino/types"
 	crypto "github.com/tendermint/tendermint/crypto"
@@ -364,14 +365,14 @@ func (as AccountStorage) Import(ctx sdk.Context, tb *AccountTablesIR) {
 	}
 	// import table.accounts
 	for _, v := range tb.Accounts {
-		err := as.SetInfo(ctx, v.Username, &v.Info)
+		err := as.SetInfo(ctx, v.Username, v.Info.ToState())
 		check(err)
-		err = as.SetBankFromAccountKey(ctx, v.Username, &v.Bank)
+		err = as.SetBankFromAccountKey(ctx, v.Username, v.Bank.ToState())
 		check(err)
-		err = as.SetMeta(ctx, v.Username, &v.Meta)
+		err = as.SetMeta(ctx, v.Username, v.Meta.ToState())
 		check(err)
 		q := &PendingCoinDayQueue{
-			LastUpdatedAt:   v.PendingCoinDayQueue.LastUpdatedAt,
+			LastUpdatedAt:   types.MustParseInt64(v.PendingCoinDayQueue.LastUpdatedAt, 10, 64),
 			TotalCoinDay:    sdk.MustNewDecFromStr(v.PendingCoinDayQueue.TotalCoinDay),
 			TotalCoin:       v.PendingCoinDayQueue.TotalCoin,
 			PendingCoinDays: v.PendingCoinDayQueue.PendingCoinDays,

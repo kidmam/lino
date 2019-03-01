@@ -19,9 +19,9 @@ type AccountRow struct {
 func (a AccountRow) ToIR() AccountRowIR {
 	return AccountRowIR{
 		Username:            a.Username,
-		Info:                a.Info,
-		Bank:                a.Bank,
-		Meta:                a.Meta,
+		Info:                a.Info.ToIR(),
+		Bank:                a.Bank.ToIR(),
+		Meta:                a.Meta.ToIR(),
 		PendingCoinDayQueue: a.PendingCoinDayQueue.ToIR(),
 	}
 }
@@ -31,6 +31,23 @@ type GrantPubKeyRow struct {
 	Username    types.AccountKey `json:"username"`
 	PubKey      crypto.PubKey    `json:"pub_key"`
 	GrantPubKey GrantPubKey      `json:"grant_pub_key"`
+}
+
+// GrantPubKeyRowSliceToIR -
+func GrantPubKeyRowSliceToIR(origin []GrantPubKeyRow) (ir []GrantPubKeyRowIR) {
+	for _, v := range origin {
+		ir = append(ir, v.ToIR())
+	}
+	return
+}
+
+// ToIR - int to string and internal conversions
+func (g GrantPubKeyRow) ToIR() GrantPubKeyRowIR {
+	return GrantPubKeyRowIR{
+		Username:    g.Username,
+		PubKey:      g.PubKey,
+		GrantPubKey: g.GrantPubKey.ToIR(),
+	}
 }
 
 // AccountTables is the state of account storage, organized as a table.
@@ -45,6 +62,6 @@ func (a AccountTables) ToIR() *AccountTablesIR {
 	for _, v := range a.Accounts {
 		tables.Accounts = append(tables.Accounts, v.ToIR())
 	}
-	tables.AccountGrantPubKeys = a.AccountGrantPubKeys
+	tables.AccountGrantPubKeys = GrantPubKeyRowSliceToIR(a.AccountGrantPubKeys)
 	return tables
 }
