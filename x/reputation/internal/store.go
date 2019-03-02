@@ -38,6 +38,9 @@ type ReputationStore interface {
 	// Import state from bytes
 	Import(bytes []byte) error
 
+	// Iterator over all stored users.
+	GetUserMetaItr() db.Iterator
+
 	// Note that, this value may not be the exact customer score of the user
 	// due to there might be unsettled keys remaining.
 	// Also, because that user can get free reputation when they lockdown coins, this value
@@ -114,6 +117,9 @@ type ReputationStore interface {
 	// @returns: how many keys this user has on this post. return nil if have zero.
 	GetRoundNumKeysHas(r RoundId, u Uid, p Pid) bigInt
 	SetRoundNumKeysHas(r RoundId, u Uid, p Pid, numKeys bigInt)
+
+	// cleanup related
+	DelRoundNumKeysHas(r RoundId, u Uid, p Pid)
 }
 
 // This store implementation does not have state. It is just a wrapper of read/write of
@@ -131,6 +137,7 @@ type ReputationStore interface {
 // https://github.com/alecthomas/go_serialization_benchmarks
 
 var (
+	// KeySeparator - separating fields.
 	KeySeparator               = []byte("/")
 	repUserMetaPrefix          = []byte{0x00}
 	repPostMetaPrefix          = []byte{0x01}
@@ -203,11 +210,15 @@ func getRoundPostMetaKey(r RoundId, p Pid) []byte {
 	return append(prefix, []byte(p)...)
 }
 
-func getRoundUserPostMetaKey(r RoundId, u Uid, p Pid) []byte {
+func getRoundUserPostMetaUserPrefix(r RoundId, u Uid) []byte {
 	roundPrefix := append(getRoundMetaKey(r), KeySeparator...)
 	roundUserPrefix := append(roundPrefix, []byte(u)...)
-	roundUserPrefix = append(roundUserPrefix, KeySeparator...)
-	return append(roundUserPrefix, []byte(p)...)
+	return roundUserPrefix
+}
+
+func getRoundUserPostMetaKey(r RoundId, u Uid, p Pid) []byte {
+	roundUserPrefix = getRoundUserPostMetaUserPrefix(r, u)
+	return append(roundUserPrefix, KeySeparator, []byte(p)...)
 }
 
 func getGameKey() []byte {
@@ -219,6 +230,8 @@ type reputationStoreImpl struct {
 	store             Store
 	BestContentIndexN int
 }
+
+var _ ReputationStore = &reputationStoreImpl{}
 
 func NewReputationStoreDefaultN(s Store) ReputationStore {
 	return &reputationStoreImpl{store: s, BestContentIndexN: DefaultBestContentIndexN}
@@ -353,6 +366,14 @@ func (impl reputationStoreImpl) getRoundPostMeta(r RoundId, p Pid) *roundPostMet
 	return rst
 }
 
+// DelRoundUserPostAll - forall p, remove (r, u, p).
+func (impl reputationStoreImpl) DelRoundUserPostAll(r RoundId, u Uid) {
+	prefix := getRoundUserPostMetaUserPrefix(r, u)
+	itr := impl.store.Iterator(prefix, PrefixEndBytes(prefix))
+	defer itr.Close()
+	impl.store.Delete(getRoundUserPostMetaKey(r, u, p))
+}
+
 func (impl reputationStoreImpl) setRoundPostMeta(r RoundId, p Pid, dt *roundPostMeta) {
 	if dt != nil {
 		impl.store.Set(getRoundPostMetaKey(r, p), encodeRoundPostMeta(dt))
@@ -395,6 +416,10 @@ func (impl reputationStoreImpl) setGameMeta(dt *gameMeta) {
 }
 
 //  --------------          user meta          ------------------
+func (impl reputationStoreImpl) GetUserMetaItr() db.Iterator {
+	return impl.store.Iterator(repUserMetaPrefix, PrefixEndBytes(repUserMetaPrefix))
+}
+
 func (impl reputationStoreImpl) GetCustomerScore(u Uid) Rep {
 	return impl.getUserMeta(u).CustomerScore
 }
@@ -612,4 +637,7 @@ func (impl reputationStoreImpl) SetRoundNumKeysHas(r RoundId, u Uid, p Pid, numK
 	impl.setRoundUserPostMeta(r, u, p, rst)
 }
 
-var _ ReputationStore = &reputationStoreImpl{}
+// DelRoundNumKeysHas - just RoundUserPostMeta now only has NumKeyHas, so delete the entry.
+func (impl reputationStoreImpl) DelRoundNumKeysHas(r RoundId, u Uid, p Pid) {
+	impl.delRoundUserPostMeta(r, u, p)
+}

@@ -6,6 +6,7 @@ import (
 
 // This package is not thread-safe.
 
+// Reputation math model.
 type Reputation interface {
 	DonateAt(u Uid, p Pid, s Stake) Dp
 	ReportAt(u Uid, p Pid) Rep
@@ -20,12 +21,17 @@ type Reputation interface {
 	// ExportImporter
 	Export() ([]byte, error)
 	Import(dt []byte) error
+
+	// Optimize space, user data in [0, return_value] are updated, and round data will be removed.
+	Optimize() RoundId
 }
 
+// ReputationImpl - impl
 type ReputationImpl struct {
 	store ReputationStore
 }
 
+// NewReputation - no cost
 func NewReputation(s ReputationStore) Reputation {
 	return &ReputationImpl{store: s}
 }
@@ -40,16 +46,37 @@ func (rep ReputationImpl) Import(dt []byte) error {
 	return rep.store.Import(dt)
 }
 
+// Optimize - by calling GetReputation on all users to force reputation evaluation
+// and then remove roundPostMeta, roundUserPostMeta.
+// XXX(yumin): this should ONLY be called in initchainer after migrate.
+func (rep ReputationImpl) Optimize() RoundId {
+	removeUpTo, _ := rep.GetCurrentRound()
+	userItr := rep.store.GetUserMetaItr()
+	defer userItr.Close()
+	for ; userItr.Valid(); userItr.Next() {
+		uid := Uid(userItr.Key()[1:])
+		rep.GetReputation(uid) // this will force all user's reputation be set to newest
+		lastSettled := rep.store.GetUserLastSettled(uid)
+		if lastSettled < removeUpTo {
+			removeUpTo = lastSettled
+		}
+	}
+
+}
+
+// GetReputation - Total reputation of @p u.
 func (rep ReputationImpl) GetReputation(u Uid) Rep {
 	customerScore := rep.GetSettledCustomerScore(u)
 	freeScore := rep.store.GetFreeScore(u)
 	return bigIntAdd(customerScore, freeScore)
 }
 
+// GetSumRep - total reputation of a post.
 func (rep ReputationImpl) GetSumRep(p Pid) Rep {
 	return rep.store.GetSumRep(p)
 }
 
+// GetSettledCustomerScore - lazy eval customer score.
 func (rep ReputationImpl) GetSettledCustomerScore(u Uid) Rep {
 	current := rep.store.GetCurrentRound()
 	lastSettled := rep.store.GetUserLastSettled(u)
@@ -86,10 +113,13 @@ func (rep ReputationImpl) GetSettledCustomerScore(u Uid) Rep {
 		rep.store.SetUserLastSettled(u, lastDonated) // last donated round is settled.
 		rep.store.SetCustomerScore(u, customerScore)
 	}
+	rep.store.DelRoundUserPost(lastDonated, u, pid)
 	return customerScore
 }
 
-// currently all donations count, though we said that only the first 40 donation counts in the spec.
+// DonateAt - @p u donate to @p p with @p s stake.
+// currently all donations count, though we said that only
+// the first 40 donation counts in the spec.
 func (rep ReputationImpl) DonateAt(u Uid, p Pid, s Stake) Dp {
 	if len(u) == 0 {
 		panic("Uid must be longer than 0")
