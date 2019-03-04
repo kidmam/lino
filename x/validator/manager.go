@@ -4,6 +4,7 @@ import (
 	"math"
 	"reflect"
 	"strings"
+	"fmt"
 
 	"github.com/lino-network/lino/param"
 	"github.com/lino-network/lino/types"
@@ -102,6 +103,7 @@ func (vm ValidatorManager) GetInitValidators(ctx sdk.Context) ([]abci.ValidatorU
 		if !strings.HasPrefix(string(validator.Username), "validator")  {
 			continue
 		}
+		fmt.Printf("Adding %s to validators", validator.Username)
 		updates = append(updates, abci.ValidatorUpdate{
 			PubKey: tmtypes.TM2PB.PubKey(validator.PubKey),
 			Power:  validator.ABCIValidator.Power,
