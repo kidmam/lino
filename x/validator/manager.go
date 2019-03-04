@@ -3,6 +3,7 @@ package validator
 import (
 	"math"
 	"reflect"
+	"strings"
 
 	"github.com/lino-network/lino/param"
 	"github.com/lino-network/lino/types"
@@ -96,6 +97,10 @@ func (vm ValidatorManager) GetInitValidators(ctx sdk.Context) ([]abci.ValidatorU
 		validator, err := vm.storage.GetValidator(ctx, curValidator)
 		if err != nil {
 			return nil, err
+		}
+		// XXX(yumin): for testing only.
+		if !strings.HasPrefix(string(validator.Username), "validator")  {
+			continue
 		}
 		updates = append(updates, abci.ValidatorUpdate{
 			PubKey: tmtypes.TM2PB.PubKey(validator.PubKey),
