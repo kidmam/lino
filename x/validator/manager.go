@@ -103,7 +103,8 @@ func (vm ValidatorManager) GetInitValidators(ctx sdk.Context) ([]abci.ValidatorU
 		if !strings.HasPrefix(string(validator.Username), "validator")  {
 			continue
 		}
-		fmt.Printf("Adding %s to validators: %+v", validator.Username, validator)
+		fmt.Printf("Adding %s (addr: %s) to validators: %+v\n", validator.Username,
+			validator.PubKey.Address(), validator)
 		updates = append(updates, abci.ValidatorUpdate{
 			PubKey: tmtypes.TM2PB.PubKey(validator.PubKey),
 			Power:  validator.ABCIValidator.Power,
