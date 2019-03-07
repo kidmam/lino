@@ -330,16 +330,13 @@ func (lb *LinoBlockchain) initChainer(ctx sdk.Context, req abci.RequestInitChain
 		}
 	}
 
-	// generate respoinse init message.
-	validators, err := lb.valManager.GetInitValidators(ctx)
-	if err != nil {
-		panic(err)
-	}
+	// // generate respoinse init message.
+	// validators, err := lb.valManager.GetInitValidators(ctx)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	return abci.ResponseInitChain{
-		ConsensusParams: req.ConsensusParams,
-		Validators:      validators,
-	}
+	return abci.ResponseInitChain{}
 }
 
 // convert GenesisAccount to AppAccount
@@ -468,6 +465,7 @@ func (lb *LinoBlockchain) executeTimeEvents(ctx sdk.Context) {
 	}
 	for i := lastBlockTime; i < currentTime; i++ {
 		if timeEvents := lb.globalManager.GetTimeEventListAtTime(ctx, i); timeEvents != nil {
+			fmt.Printf("[executeTimeEvents]: %+v ", timeEvents.Events)
 			lb.executeEvents(ctx, timeEvents.Events)
 			lb.globalManager.RemoveTimeEventList(ctx, i)
 		}
@@ -683,6 +681,12 @@ func (lb *LinoBlockchain) syncInfoWithVoteManager(ctx sdk.Context) {
 
 // Custom logic for state export
 func (lb *LinoBlockchain) ExportAppStateAndValidators() (appState json.RawMessage, validators []tmtypes.GenesisValidator, err error) {
+
+	check := func(e error) {
+		if err != nil {
+			panic("xxxxxxx: " + e.Error())
+		}
+	}
 	ctx := lb.NewContext(true, abci.Header{})
 
 	exportPath := DefaultNodeHome + "/" + currStateFolder
@@ -704,30 +708,129 @@ func (lb *LinoBlockchain) ExportAppStateAndValidators() (appState json.RawMessag
 		}
 		fmt.Printf("export for %s done: %d bytes\n", filename, len(jsonbytes))
 		f.Sync()
+		fmt.Printf("%s\n", jsonbytes)
 	}
 
+	// exportToFile(accountStateFile, func(ctx sdk.Context) interface{} {
+	// 	return lb.accountManager.Export(ctx).ToIR()
+	// })
+	// exportToFile(developerStateFile, func(ctx sdk.Context) interface{} {
+	// 	return lb.developerManager.Export(ctx).ToIR()
+	// })
+	// exportToFile(postStateFile, func(ctx sdk.Context) interface{} {
+	// 	return lb.postManager.Export(ctx).ToIR()
+	// })
+	// exportToFile(globalStateFile, func(ctx sdk.Context) interface{} {
+	// 	return lb.globalManager.Export(ctx).ToIR()
+	// })
+	// exportToFile(infraStateFile, func(ctx sdk.Context) interface{} {
+	// 	return lb.infraManager.Export(ctx).ToIR()
+	// })
+	// exportToFile(validatorStateFile, func(ctx sdk.Context) interface{} {
+	// 	return lb.valManager.Export(ctx).ToIR()
+	// })
+	// exportToFile(voterStateFile, func(ctx sdk.Context) interface{} {
+	// 	return lb.voteManager.Export(ctx).ToIR()
+	// })
+	// lb.reputationManager.ExportToFile(ctx, exportPath + "reputation")
+	// exportToFile(reputationStateFile, func(ctx sdk.Context) interface{} {
+	// 	rep, err := lb.reputationManager.Export(ctx)
+	// 	check(err)
+	// 	return rep
+	// })
 	exportToFile(accountStateFile, func(ctx sdk.Context) interface{} {
-		return lb.accountManager.Export(ctx).ToIR()
+		fmt.Printf("%s\n", "=============== account ===============")
+
+		rst := lb.accountManager.Export(ctx)
+		for _, v := range rst.Accounts[:20] {
+			fmt.Printf("%+v\n", v)
+			x, err := lb.reputationManager.GetReputation(ctx, v.Username)
+			check(err)
+			fmt.Printf("rep: %+v\n", x)
+		}
+		// for _, v := range rst.AccountGrantPubKeys[:20] {
+		// 	fmt.Printf("%+v\n", v)
+		// }
+		v, err := lb.reputationManager.GetReputation(ctx, "yxia")
+		check(err)
+		fmt.Printf("yxia-rep: %+v\n", v)
+		v, err = lb.reputationManager.GetReputation(ctx, "ytu")
+		check(err)
+		x, err := lb.reputationManager.GetCurrentRound(ctx)
+		fmt.Printf("rep-current-roudn: %+v\n", x)
+		return rst.ToIR()
 	})
 	exportToFile(developerStateFile, func(ctx sdk.Context) interface{} {
-		return lb.developerManager.Export(ctx).ToIR()
+
+		fmt.Printf("%s\n", "=============== dev ===============")
+		rst := lb.developerManager.Export(ctx)
+		for _, v := range rst.Developers {
+			fmt.Printf("%+v\n", v)
+		}
+		fmt.Printf("%+v\n", rst.DeveloperList)
+		return rst.ToIR()
 	})
 	exportToFile(postStateFile, func(ctx sdk.Context) interface{} {
-		return lb.postManager.Export(ctx).ToIR()
+
+		fmt.Printf("%s\n", "=============== posts ===============")
+		rst := lb.postManager.Export(ctx)
+		for _, v := range rst.Posts[:20] {
+			fmt.Printf("%+v\n", v)
+			x, err := lb.reputationManager.GetSumRep(ctx, v.Permlink)
+			check(err)
+			fmt.Printf("sumdp: %v\n", x)
+		}
+		for _, v := range rst.PostUsers {
+			fmt.Printf("%+v\n", v)
+		}
+		return rst.ToIR()
 	})
 	exportToFile(globalStateFile, func(ctx sdk.Context) interface{} {
-		return lb.globalManager.Export(ctx).ToIR()
+
+		fmt.Printf("%s\n", "=============== global ===============")
+		rst := lb.globalManager.Export(ctx)
+		for _, v := range rst.GlobalTimeEventLists[:20] {
+			fmt.Printf("%+v\n", v)
+		}
+		for _, v := range rst.GlobalStakeStats[:20] {
+			fmt.Printf("%+v\n", v)
+		}
+		fmt.Printf("%+v\n", rst.GlobalMisc)
+
+		return rst.ToIR()
 	})
 	exportToFile(infraStateFile, func(ctx sdk.Context) interface{} {
-		return lb.infraManager.Export(ctx).ToIR()
+
+		fmt.Printf("%s\n", "=============== infra ===============")
+		rst := lb.infraManager.Export(ctx)
+		for _, v := range rst.InfraProviders {
+			fmt.Printf("%+v\n", v)
+		}
+		fmt.Printf("%+v\n", rst.InfraProviderList)
+		return rst.ToIR()
 	})
 	exportToFile(validatorStateFile, func(ctx sdk.Context) interface{} {
-		return lb.valManager.Export(ctx).ToIR()
+
+		fmt.Printf("%s\n", "=============== vali ===============")
+		rst := lb.valManager.Export(ctx)
+		for _, v := range rst.Validators {
+			fmt.Printf("%+v\n", v)
+		}
+		fmt.Printf("%+v\n", rst.ValidatorList)
+		return rst.ToIR()
 	})
 	exportToFile(voterStateFile, func(ctx sdk.Context) interface{} {
-		return lb.voteManager.Export(ctx).ToIR()
+		fmt.Printf("%s\n", "=============== voter ===============")
+		rst := lb.voteManager.Export(ctx)
+		for _, v := range rst.Voters[:20] {
+			fmt.Printf("%+v\n", v)
+		}
+		for _, v := range rst.Delegations {
+			fmt.Printf("%+v\n", v)
+		}
+		fmt.Printf("%+v\n", rst.ReferenceList)
+		return rst.ToIR()
 	})
-	lb.reputationManager.ExportToFile(ctx, exportPath + "reputation")
 
 	genesisState := GenesisState{}
 
