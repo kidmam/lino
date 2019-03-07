@@ -780,7 +780,7 @@ func (lb *LinoBlockchain) ExportAppStateAndValidators() (appState json.RawMessag
 			check(err)
 			fmt.Printf("sumdp: %v\n", x)
 		}
-		for _, v := range rst.PostUsers {
+		for _, v := range rst.PostUsers[:20] {
 			fmt.Printf("%+v\n", v)
 		}
 		return rst.ToIR()
