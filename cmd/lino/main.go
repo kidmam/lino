@@ -3,6 +3,9 @@ package main
 import (
 	"encoding/json"
 	"io"
+	_ "net/http/pprof"
+	"net/http"
+	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -28,6 +31,12 @@ func newApp(logger log.Logger, db dbm.DB, traceStore io.Writer) abci.Application
 }
 
 func main() {
+	go func() {
+		if err := http.ListenAndServe(":1086", nil); err != nil {
+			panic(fmt.Sprintf("HTTP server failed: %v", err))
+		}
+	}()
+
 	cobra.EnableCommandSorting = false
 
 	cdc := app.MakeCodec()
@@ -45,6 +54,7 @@ func main() {
 
 	executor := cli.PrepareBaseCmd(rootCmd, "BC", app.DefaultNodeHome)
 	executor.Execute()
+
 }
 
 func exportAppStateAndTMValidators(logger log.Logger, db dbm.DB, traceStore io.Writer,
